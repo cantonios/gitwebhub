@@ -4031,7 +4031,7 @@ sub print_search_form {
 	      " search:\n",
 	      $cgi->textfield(-name => "s", -value => $searchtext, -override => 1) . "\n" .
 	      "<span title=\"Extended regular expression\">" .
-	      $cgi->checkbox(-name => 'sr', -value => 1, -label => 're',
+	      $cgi->checkbox(-name => 'sr', -value => 1, -label => 'regex',
 	                     -checked => $search_use_regexp) .
 	      "</span>" .
 	      "</div>" .
@@ -4327,6 +4327,23 @@ sub git_print_header_div {
 	      $cgi->a({-href => href(%args), -class => "title"},
 	      $title ? $title : $action) .
 	      "\n</div>\n";
+}
+
+sub format_clone_button_url {
+    my ($id, $url, $button_class) = @_;
+    my $type = "GIT";
+    
+    if (index($url, "git://") !=-1) {
+        $type = "GIT";
+    } elsif (index($url, "http://") !=-1) {
+        $type = "HTTP";
+    } elsif (index($url, "https://") !=-1) {
+        $type = "HTTPS";
+    } else {
+        $type = "SSH"
+    }
+
+    return "<li><a id=\"" . $id . "\" onclick=\"updatelink(this," . esc_html("\"$url\"") . ")\" class=\"".$button_class."\" title=\"". $type . "\">" . $type . "</a></li>\n"
 }
 
 sub format_repo_url {
@@ -5437,7 +5454,7 @@ sub git_project_search_form {
 	                      -title => "Search project by name and description$limit",
 	                      -size => 60) . "\n" .
 	      "<span title=\"Extended regular expression\">" .
-	      $cgi->checkbox(-name => 'sr', -value => 1, -label => 're',
+	      $cgi->checkbox(-name => 'sr', -value => 1, -label => 'regex',
 	                     -checked => $search_use_regexp) .
 	      "</span>\n" .
 	      $cgi->submit(-name => 'btnS', -value => 'Search') .
@@ -6450,7 +6467,42 @@ sub git_summary {
 	git_header_html();
 	git_print_page_nav('summary','', $head);
 
-	print "<div class=\"title\">&nbsp;</div>\n";
+	#----------------------------------------------------------------------
+	# CHANGED TO PLACE BUTTONS FOR CLONE URLS
+	#----------------------------------------------------------------------
+	# use per project git URL list in $projectroot/$project/cloneurl
+	# or make project git URL from git base URL and project name
+	
+	my @url_list = git_get_project_url_list($project);
+	@url_list = map { "$_" =~ m/[\/:]$/ ? "$_$project" : "$_/$project" } @git_base_url_list unless @url_list;
+
+	my $url_list_size = scalar(@url_list);	
+	my $button_idx = 0;
+	
+    print "<div class=\"title\">";
+    print "<ul id=\"clonebuttons\" class=\"button-group\">";
+
+    if ($url_list_size > 0) {
+        my $button_class = "button selected";
+        foreach my $git_url (@url_list) {
+            next unless $git_url;
+            print format_clone_button_url("clonebutton_".$button_idx, $git_url, $button_class);
+            $button_idx++;
+            $button_class = "button"
+        }
+        print "<li><input id=\"clone_url_box\" type=\"text\" spellcheck=\"false\" class=\"gh-url-field\" value=\"". $url_list[0]. "\"></input></li>";
+    }
+
+    # print snapshot buttons
+    foreach my $snapfmt (@snapshot_fmts) {
+        my $FMT = uc($snapfmt);
+        print "<li><a class=\"button\" title=\"Download snapshot as a $known_snapshot_formats{$snapfmt}{'suffix'} file\" href=\"?p=${project};a=snapshot;h=${head};sf=$snapfmt\">$FMT</a></li>";
+    }
+
+    print "</ul>" . "</div>\n";
+
+	#----------------------------------------------------------------------
+
 	print "<table class=\"projects_list\">\n" .
 	      "<tr id=\"metadata_desc\"><td>description</td><td>" . esc_html($descr) . "</td></tr>\n";
         unless ($omit_owner) {
@@ -6459,17 +6511,6 @@ sub git_summary {
 	if (defined $cd{'rfc2822'}) {
 		print "<tr id=\"metadata_lchange\"><td>last change</td>" .
 		      "<td>".format_timestamp_html(\%cd)."</td></tr>\n";
-	}
-
-	# use per project git URL list in $projectroot/$project/cloneurl
-	# or make project git URL from git base URL and project name
-	my $url_tag = "URL";
-	my @url_list = git_get_project_url_list($project);
-	@url_list = map { "$_/$project" } @git_base_url_list unless @url_list;
-	foreach my $git_url (@url_list) {
-		next unless $git_url;
-		print format_repo_url($url_tag, $git_url);
-		$url_tag = "";
 	}
 
 	# Tag cloud
