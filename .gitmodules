@@ -1,0 +1,6 @@
+[submodule "gitweb-theme"]
+	path = gitweb-theme
+	url = https://github.com/kogakure/gitweb-theme.git
+[submodule "css3-github-buttons"]
+	path = css3-github-buttons
+	url = https://github.com/necolas/css3-github-buttons.git
